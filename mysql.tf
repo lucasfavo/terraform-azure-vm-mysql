@@ -14,8 +14,8 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "rgmysql" {
-	name     = "rgmysql"
+resource "azurerm_resource_group" "rg_mysql" {
+	name     = "rg_mysql"
 	location = "eastus"
 
 	tags     = {
@@ -23,31 +23,31 @@ resource "azurerm_resource_group" "rgmysql" {
 	}
 }
 
-resource "azurerm_virtual_network" "vnmysql" {
-	name                = "vnmysql"
+resource "azurerm_virtual_network" "vn_mysql" {
+	name                = "vn_mysql"
 	address_space       = ["10.0.0.0/16"]
 	location            = "eastus"
-	resource_group_name = azurerm_resource_group.rgmysql.name
+	resource_group_name = azurerm_resource_group.rg_mysql.name
 }
 
-resource "azurerm_subnet" "subnetmysql" {
-	name                 = "subnetmysql"
-	resource_group_name  = azurerm_resource_group.rgmysql.name
-	virtual_network_name = azurerm_virtual_network.vnmysql.name
+resource "azurerm_subnet" "subnet_mysql" {
+	name                 = "subnet_mysql"
+	resource_group_name  = azurerm_resource_group.rg_mysql.name
+	virtual_network_name = azurerm_virtual_network.vn_mysql.name
 	address_prefixes       = ["10.0.1.0/24"]
 }
 
-resource "azurerm_public_ip" "publicipmysql" {
-	name                         = "publicipmysql"
+resource "azurerm_public_ip" "public_ip_mysql" {
+	name                         = "public_ip_mysql"
 	location                     = "eastus"
-	resource_group_name          = azurerm_resource_group.rgmysql.name
+	resource_group_name          = azurerm_resource_group.rg_mysql.name
 	allocation_method            = "Static"
 }
 
-resource "azurerm_network_security_group" "nsgmysql" {
-	name                = "nsgmysql"
+resource "azurerm_network_security_group" "nsg_mysql" {
+	name                = "nsg_mysql"
 	location            = "eastus"
-	resource_group_name = azurerm_resource_group.rgmysql.name
+	resource_group_name = azurerm_resource_group.rg_mysql.name
 
 	security_rule {
 		name                       = "mysql"
@@ -74,42 +74,42 @@ resource "azurerm_network_security_group" "nsgmysql" {
 	}
 }
 
-resource "azurerm_network_interface" "nicmysql" {
-	name                      = "nicmysql"
+resource "azurerm_network_interface" "nic_mysql" {
+	name                      = "nic_mysql"
 	location                  = "eastus"
-	resource_group_name       = azurerm_resource_group.rgmysql.name
+	resource_group_name       = azurerm_resource_group.rg_mysql.name
 
 	ip_configuration {
 		name                          = "myNicConfiguration"
-		subnet_id                     = azurerm_subnet.subnetmysql.id
+		subnet_id                     = azurerm_subnet.subnet_mysql.id
 		private_ip_address_allocation = "Dynamic"
-		public_ip_address_id          = azurerm_public_ip.publicipmysql.id
+		public_ip_address_id          = azurerm_public_ip.public_ip_mysql.id
 	}
 }
 
 resource "azurerm_network_interface_security_group_association" "example" {
-	network_interface_id      = azurerm_network_interface.nicmysql.id
-	network_security_group_id = azurerm_network_security_group.nsgmysql.id
+	network_interface_id      = azurerm_network_interface.nic_mysql.id
+	network_security_group_id = azurerm_network_security_group.nsg_mysql.id
 }
 
 data "azurerm_public_ip" "ip_aula_data_db" {
-  name                = azurerm_public_ip.publicipmysql.name
-  resource_group_name = azurerm_resource_group.rgmysql.name
+  name                = azurerm_public_ip.public_ip_mysql.name
+  resource_group_name = azurerm_resource_group.rg_mysql.name
 }
 
-resource "azurerm_storage_account" "samsql" {
+resource "azurerm_storage_account" "sam_sql" {
 	name                        = "storageaccountmyvm"
-	resource_group_name         = azurerm_resource_group.rgmysql.name
+	resource_group_name         = azurerm_resource_group.rg_mysql.name
 	location                    = "eastus"
 	account_tier                = "Standard"
 	account_replication_type    = "LRS"
 }
 
-resource "azurerm_linux_virtual_machine" "vmmysql" {
+resource "azurerm_linux_virtual_machine" "vm_mysql" {
 	name                  = "mysql"
 	location              = "eastus"
-	resource_group_name   = azurerm_resource_group.rgmysql.name
-	network_interface_ids = [azurerm_network_interface.nicmysql.id]
+	resource_group_name   = azurerm_resource_group.rg_mysql.name
+	network_interface_ids = [azurerm_network_interface.nic_mysql.id]
 	size                  = "Standard_DS1_v2"
 
 	os_disk {
@@ -131,18 +131,18 @@ resource "azurerm_linux_virtual_machine" "vmmysql" {
 	disable_password_authentication = false
 
 	boot_diagnostics {
-		storage_account_uri = azurerm_storage_account.samsql.primary_blob_endpoint
+		storage_account_uri = azurerm_storage_account.sam_sql.primary_blob_endpoint
 	}
 
-	depends_on = [ azurerm_resource_group.rgmysql ]
+	depends_on = [ azurerm_resource_group.rg_mysql ]
 }
 
 output "public_ip_address_mysql" {
-  value = azurerm_public_ip.publicipmysql.ip_address
+  value = azurerm_public_ip.public_ip_mysql.ip_address
 }
 
 resource "time_sleep" "wait_30_seconds_db" {
-  depends_on = [azurerm_linux_virtual_machine.vmmysql]
+  depends_on = [azurerm_linux_virtual_machine.vm_mysql]
   create_duration = "30s"
 }
 
